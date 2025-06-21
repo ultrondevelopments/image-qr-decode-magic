@@ -1,4 +1,5 @@
 
+
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Upload, Camera, Copy, CheckCircle, AlertCircle, X, CameraOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -406,9 +407,25 @@ const QRScanner = () => {
             </div>
           </CardContent>
         </Card>
+
+        {/* Footer */}
+        <div className="text-center mt-8 py-6">
+          <p className="text-gray-600 text-sm">
+            Built with ❤️ by{' '}
+            <a 
+              href="https://ultrondevelopments.com.au" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-blue-600 hover:text-blue-800 font-medium transition-colors"
+            >
+              Ultron Developments
+            </a>
+          </p>
+        </div>
       </div>
     </div>
   );
 };
 
 export default QRScanner;
+
