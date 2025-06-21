@@ -1,5 +1,3 @@
-
-
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Upload, Camera, Copy, CheckCircle, AlertCircle, X, CameraOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -10,6 +8,7 @@ import QrScanner from 'qr-scanner';
 interface ScanResult {
   data: string;
   timestamp: Date;
+  format: string;
 }
 
 const QRScanner = () => {
@@ -34,28 +33,33 @@ const QRScanner = () => {
     setIsDragOver(false);
   }, []);
 
-  const scanQRCode = async (file: File) => {
+  const scanCode = async (file: File) => {
     setIsScanning(true);
     try {
       const imageUrl = URL.createObjectURL(file);
       setUploadedImage(imageUrl);
       
-      const result = await QrScanner.scanImage(file);
+      const result = await QrScanner.scanImage(file, {
+        returnDetailedScanResult: true,
+      });
       
       setScanResult({
-        data: result,
-        timestamp: new Date()
+        data: result.data,
+        timestamp: new Date(),
+        format: result.format || 'Unknown'
       });
       
+      const isBarcode = result.format && result.format !== 'qr_code';
+      
       toast({
-        title: "QR Code Detected!",
-        description: "Successfully extracted data from the QR code.",
+        title: `${isBarcode ? 'Barcode' : 'QR Code'} Detected!`,
+        description: `Successfully extracted data from the ${isBarcode ? 'barcode' : 'QR code'}.`,
       });
     } catch (error) {
-      console.error('QR scanning error:', error);
+      console.error('Code scanning error:', error);
       toast({
-        title: "No QR Code Found",
-        description: "Could not detect a QR code in this image. Please try another image.",
+        title: "No Code Found",
+        description: "Could not detect a QR code or barcode in this image. Please try another image.",
         variant: "destructive",
       });
     } finally {
@@ -69,7 +73,6 @@ const QRScanner = () => {
       setCameraError(null);
       setIsCameraActive(true);
       
-      // Check if QR scanner has camera access
       const hasCamera = await QrScanner.hasCamera();
       console.log('Has camera:', hasCamera);
       
@@ -78,31 +81,36 @@ const QRScanner = () => {
       }
       
       if (videoRef.current) {
-        console.log('Creating QR scanner instance...');
+        console.log('Creating scanner instance...');
         qrScannerRef.current = new QrScanner(
           videoRef.current,
           (result) => {
-            console.log('QR code detected:', result);
+            console.log('Code detected:', result);
+            const isBarcode = result.format && result.format !== 'qr_code';
+            
             setScanResult({
               data: result.data,
-              timestamp: new Date()
+              timestamp: new Date(),
+              format: result.format || 'Unknown'
             });
+            
             toast({
-              title: "QR Code Detected!",
-              description: "Successfully scanned QR code from camera.",
+              title: `${isBarcode ? 'Barcode' : 'QR Code'} Detected!`,
+              description: `Successfully scanned ${isBarcode ? 'barcode' : 'QR code'} from camera.`,
             });
             stopCamera();
           },
           {
             highlightScanRegion: true,
             highlightCodeOutline: true,
-            preferredCamera: 'environment', // Use back camera on mobile
+            preferredCamera: 'environment',
+            returnDetailedScanResult: true,
           }
         );
         
-        console.log('Starting QR scanner...');
+        console.log('Starting scanner...');
         await qrScannerRef.current.start();
-        console.log('QR scanner started successfully');
+        console.log('Scanner started successfully');
       }
     } catch (error) {
       console.error('Camera error:', error);
@@ -146,7 +154,7 @@ const QRScanner = () => {
     const imageFile = files.find(file => file.type.startsWith('image/'));
     
     if (imageFile) {
-      scanQRCode(imageFile);
+      scanCode(imageFile);
     } else {
       toast({
         title: "Invalid File Type",
@@ -159,7 +167,7 @@ const QRScanner = () => {
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      scanQRCode(file);
+      scanCode(file);
     }
   };
 
@@ -202,10 +210,10 @@ const QRScanner = () => {
             </div>
           </div>
           <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
-            QR Code Scanner
+            QR Code & Barcode Scanner
           </h1>
           <p className="text-gray-600 text-lg">
-            Upload an image or use your camera to scan and extract QR code data
+            Upload an image or use your camera to scan QR codes and barcodes
           </p>
         </div>
 
@@ -226,7 +234,7 @@ const QRScanner = () => {
                     <div className="border-2 border-white rounded-lg w-48 h-48 opacity-70 shadow-lg"></div>
                   </div>
                   <div className="p-4 bg-gray-900 text-white text-center">
-                    <p className="mb-3">Point camera at QR code</p>
+                    <p className="mb-3">Point camera at QR code or barcode</p>
                     <Button
                       onClick={stopCamera}
                       variant="outline"
@@ -309,7 +317,7 @@ const QRScanner = () => {
                     <div className="absolute inset-0 bg-white/80 flex items-center justify-center">
                       <div className="text-center">
                         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                        <p className="text-gray-600">Scanning QR code...</p>
+                        <p className="text-gray-600">Scanning code...</p>
                       </div>
                     </div>
                   )}
@@ -338,11 +346,18 @@ const QRScanner = () => {
                 <div className="space-y-4">
                   <div className="bg-gray-50 rounded-lg p-4">
                     <label className="text-sm font-medium text-gray-600 block mb-2">
-                      QR Code Data:
+                      {scanResult.format === 'qr_code' ? 'QR Code' : 'Barcode'} Data:
                     </label>
                     <div className="bg-white rounded border p-3 font-mono text-sm break-all">
                       {scanResult.data}
                     </div>
+                    {scanResult.format !== 'Unknown' && (
+                      <div className="mt-2">
+                        <span className="text-xs text-gray-500">
+                          Format: {scanResult.format.replace('_', ' ').toUpperCase()}
+                        </span>
+                      </div>
+                    )}
                   </div>
                   
                   <div className="flex items-center justify-between">
@@ -364,7 +379,7 @@ const QRScanner = () => {
                 <div className="text-center py-8">
                   <AlertCircle className="w-12 h-12 mx-auto text-gray-400 mb-4" />
                   <p className="text-gray-500">
-                    No QR code data yet. Upload an image or use camera to get started.
+                    No code data yet. Upload an image or use camera to get started.
                   </p>
                 </div>
               )}
@@ -383,7 +398,7 @@ const QRScanner = () => {
                 </div>
                 <div>
                   <p className="font-medium text-gray-800">1. Upload Image</p>
-                  <p>Drag & drop or click to select an image containing a QR code</p>
+                  <p>Drag & drop or select an image containing a QR code or barcode</p>
                 </div>
               </div>
               <div className="flex items-start gap-3">
@@ -392,7 +407,7 @@ const QRScanner = () => {
                 </div>
                 <div>
                   <p className="font-medium text-gray-800">2. Use Camera</p>
-                  <p>Click "Use Camera" to scan QR codes in real-time</p>
+                  <p>Click "Use Camera" to scan QR codes and barcodes in real-time</p>
                 </div>
               </div>
               <div className="flex items-start gap-3">
@@ -428,4 +443,3 @@ const QRScanner = () => {
 };
 
 export default QRScanner;
-
