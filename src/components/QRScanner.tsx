@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Upload, Camera, Copy, CheckCircle, AlertCircle, X, CameraOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -63,13 +64,24 @@ const QRScanner = () => {
 
   const startCamera = async () => {
     try {
+      console.log('Starting camera...');
       setCameraError(null);
       setIsCameraActive(true);
       
+      // Check if QR scanner has camera access
+      const hasCamera = await QrScanner.hasCamera();
+      console.log('Has camera:', hasCamera);
+      
+      if (!hasCamera) {
+        throw new Error('No camera found on this device');
+      }
+      
       if (videoRef.current) {
+        console.log('Creating QR scanner instance...');
         qrScannerRef.current = new QrScanner(
           videoRef.current,
           (result) => {
+            console.log('QR code detected:', result);
             setScanResult({
               data: result.data,
               timestamp: new Date()
@@ -83,24 +95,29 @@ const QRScanner = () => {
           {
             highlightScanRegion: true,
             highlightCodeOutline: true,
+            preferredCamera: 'environment', // Use back camera on mobile
           }
         );
         
+        console.log('Starting QR scanner...');
         await qrScannerRef.current.start();
+        console.log('QR scanner started successfully');
       }
     } catch (error) {
       console.error('Camera error:', error);
-      setCameraError('Could not access camera. Please check permissions.');
+      const errorMessage = error instanceof Error ? error.message : 'Could not access camera. Please check permissions.';
+      setCameraError(errorMessage);
       setIsCameraActive(false);
       toast({
         title: "Camera Error",
-        description: "Could not access camera. Please check permissions.",
+        description: errorMessage,
         variant: "destructive",
       });
     }
   };
 
   const stopCamera = () => {
+    console.log('Stopping camera...');
     if (qrScannerRef.current) {
       qrScannerRef.current.stop();
       qrScannerRef.current.destroy();
@@ -112,6 +129,7 @@ const QRScanner = () => {
 
   useEffect(() => {
     return () => {
+      console.log('Cleanup: stopping camera');
       if (qrScannerRef.current) {
         qrScannerRef.current.stop();
         qrScannerRef.current.destroy();
@@ -203,8 +221,8 @@ const QRScanner = () => {
                     playsInline
                     muted
                   />
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="border-2 border-white rounded-lg w-48 h-48 opacity-50"></div>
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <div className="border-2 border-white rounded-lg w-48 h-48 opacity-70 shadow-lg"></div>
                   </div>
                   <div className="p-4 bg-gray-900 text-white text-center">
                     <p className="mb-3">Point camera at QR code</p>
