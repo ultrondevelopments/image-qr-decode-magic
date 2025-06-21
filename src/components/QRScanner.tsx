@@ -1,6 +1,5 @@
-
-import React, { useState, useRef, useCallback } from 'react';
-import { Upload, Camera, Copy, CheckCircle, AlertCircle, X } from 'lucide-react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
+import { Upload, Camera, Copy, CheckCircle, AlertCircle, X, CameraOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
@@ -16,7 +15,11 @@ const QRScanner = () => {
   const [isScanning, setIsScanning] = useState(false);
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
+  const [isCameraActive, setIsCameraActive] = useState(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const qrScannerRef = useRef<QrScanner | null>(null);
   const { toast } = useToast();
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -57,6 +60,64 @@ const QRScanner = () => {
       setIsScanning(false);
     }
   };
+
+  const startCamera = async () => {
+    try {
+      setCameraError(null);
+      setIsCameraActive(true);
+      
+      if (videoRef.current) {
+        qrScannerRef.current = new QrScanner(
+          videoRef.current,
+          (result) => {
+            setScanResult({
+              data: result.data,
+              timestamp: new Date()
+            });
+            toast({
+              title: "QR Code Detected!",
+              description: "Successfully scanned QR code from camera.",
+            });
+            stopCamera();
+          },
+          {
+            highlightScanRegion: true,
+            highlightCodeOutline: true,
+          }
+        );
+        
+        await qrScannerRef.current.start();
+      }
+    } catch (error) {
+      console.error('Camera error:', error);
+      setCameraError('Could not access camera. Please check permissions.');
+      setIsCameraActive(false);
+      toast({
+        title: "Camera Error",
+        description: "Could not access camera. Please check permissions.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const stopCamera = () => {
+    if (qrScannerRef.current) {
+      qrScannerRef.current.stop();
+      qrScannerRef.current.destroy();
+      qrScannerRef.current = null;
+    }
+    setIsCameraActive(false);
+    setCameraError(null);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (qrScannerRef.current) {
+        qrScannerRef.current.stop();
+        qrScannerRef.current.destroy();
+      }
+    };
+  }, []);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -107,6 +168,9 @@ const QRScanner = () => {
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
+    if (isCameraActive) {
+      stopCamera();
+    }
   };
 
   return (
@@ -122,73 +186,116 @@ const QRScanner = () => {
             QR Code Scanner
           </h1>
           <p className="text-gray-600 text-lg">
-            Upload an image to scan and extract QR code data
+            Upload an image or use your camera to scan and extract QR code data
           </p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Upload Area */}
+          {/* Upload/Camera Area */}
           <Card className="relative overflow-hidden">
             <CardContent className="p-0">
-              <div
-                className={`relative border-2 border-dashed rounded-lg transition-all duration-300 ${
-                  isDragOver
-                    ? 'border-blue-500 bg-blue-50'
-                    : 'border-gray-300 hover:border-gray-400'
-                } ${isScanning ? 'pointer-events-none opacity-50' : ''}`}
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onDrop={handleDrop}
-              >
-                <div className="p-8 text-center">
-                  {uploadedImage ? (
-                    <div className="space-y-4">
-                      <img
-                        src={uploadedImage}
-                        alt="Uploaded"
-                        className="max-w-full max-h-64 mx-auto rounded-lg shadow-md"
-                      />
-                      <Button
-                        onClick={clearResults}
-                        variant="outline"
-                        size="sm"
-                        className="gap-2"
-                      >
-                        <X className="w-4 h-4" />
-                        Clear
-                      </Button>
-                    </div>
-                  ) : (
-                    <>
-                      <div className="mb-4">
-                        <Upload className="w-16 h-16 mx-auto text-gray-400" />
+              {isCameraActive ? (
+                <div className="relative">
+                  <video
+                    ref={videoRef}
+                    className="w-full h-64 object-cover rounded-t-lg"
+                    autoPlay
+                    playsInline
+                    muted
+                  />
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="border-2 border-white rounded-lg w-48 h-48 opacity-50"></div>
+                  </div>
+                  <div className="p-4 bg-gray-900 text-white text-center">
+                    <p className="mb-3">Point camera at QR code</p>
+                    <Button
+                      onClick={stopCamera}
+                      variant="outline"
+                      size="sm"
+                      className="gap-2 bg-white text-gray-900 hover:bg-gray-100"
+                    >
+                      <CameraOff className="w-4 h-4" />
+                      Stop Camera
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div
+                  className={`relative border-2 border-dashed rounded-lg transition-all duration-300 ${
+                    isDragOver
+                      ? 'border-blue-500 bg-blue-50'
+                      : 'border-gray-300 hover:border-gray-400'
+                  } ${isScanning ? 'pointer-events-none opacity-50' : ''}`}
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                >
+                  <div className="p-8 text-center">
+                    {uploadedImage ? (
+                      <div className="space-y-4">
+                        <img
+                          src={uploadedImage}
+                          alt="Uploaded"
+                          className="max-w-full max-h-64 mx-auto rounded-lg shadow-md"
+                        />
+                        <div className="flex gap-2 justify-center">
+                          <Button
+                            onClick={clearResults}
+                            variant="outline"
+                            size="sm"
+                            className="gap-2"
+                          >
+                            <X className="w-4 h-4" />
+                            Clear
+                          </Button>
+                        </div>
                       </div>
-                      <h3 className="text-xl font-semibold text-gray-700 mb-2">
-                        Drop your image here
-                      </h3>
-                      <p className="text-gray-500 mb-4">
-                        or click to browse files
-                      </p>
-                      <Button
-                        onClick={() => fileInputRef.current?.click()}
-                        className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
-                        disabled={isScanning}
-                      >
-                        {isScanning ? 'Scanning...' : 'Choose File'}
-                      </Button>
-                    </>
+                    ) : (
+                      <>
+                        <div className="mb-4">
+                          <Upload className="w-16 h-16 mx-auto text-gray-400" />
+                        </div>
+                        <h3 className="text-xl font-semibold text-gray-700 mb-2">
+                          Drop your image here
+                        </h3>
+                        <p className="text-gray-500 mb-4">
+                          or choose from the options below
+                        </p>
+                        <div className="flex gap-3 justify-center">
+                          <Button
+                            onClick={() => fileInputRef.current?.click()}
+                            className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                            disabled={isScanning}
+                          >
+                            {isScanning ? 'Scanning...' : 'Choose File'}
+                          </Button>
+                          <Button
+                            onClick={startCamera}
+                            variant="outline"
+                            className="gap-2"
+                            disabled={isScanning}
+                          >
+                            <Camera className="w-4 h-4" />
+                            Use Camera
+                          </Button>
+                        </div>
+                        {cameraError && (
+                          <p className="text-red-500 text-sm mt-2">{cameraError}</p>
+                        )}
+                      </>
+                    )}
+                  </div>
+                  
+                  {isScanning && (
+                    <div className="absolute inset-0 bg-white/80 flex items-center justify-center">
+                      <div className="text-center">
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                        <p className="text-gray-600">Scanning QR code...</p>
+                      </div>
+                    </div>
                   )}
                 </div>
-                
-                {isScanning && (
-                  <div className="absolute inset-0 bg-white/80 flex items-center justify-center">
-                    <div className="text-center">
-                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                      <p className="text-gray-600">Scanning QR code...</p>
-                    </div>
-                  </div>
-                )}
-              </div>
+              )}
               
               <input
                 ref={fileInputRef}
@@ -238,7 +345,7 @@ const QRScanner = () => {
                 <div className="text-center py-8">
                   <AlertCircle className="w-12 h-12 mx-auto text-gray-400 mb-4" />
                   <p className="text-gray-500">
-                    No QR code data yet. Upload an image to get started.
+                    No QR code data yet. Upload an image or use camera to get started.
                   </p>
                 </div>
               )}
@@ -265,8 +372,8 @@ const QRScanner = () => {
                   <Camera className="w-4 h-4 text-purple-600" />
                 </div>
                 <div>
-                  <p className="font-medium text-gray-800">2. Auto Scan</p>
-                  <p>The app will automatically detect and scan the QR code</p>
+                  <p className="font-medium text-gray-800">2. Use Camera</p>
+                  <p>Click "Use Camera" to scan QR codes in real-time</p>
                 </div>
               </div>
               <div className="flex items-start gap-3">
