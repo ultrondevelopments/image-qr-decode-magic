@@ -1,9 +1,13 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { Upload, Camera, Copy, CheckCircle, AlertCircle, X, CameraOff } from 'lucide-react';
+import { Upload, Camera, Copy, CheckCircle, AlertCircle, X, CameraOff, QrCode, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import QrScanner from 'qr-scanner';
+import { BrowserMultiFormatReader, NotFoundException } from '@zxing/library';
+import QRCode from 'qrcode';
 
 interface ScannedResult {
   data: string;
@@ -18,9 +22,13 @@ const QRScanner = () => {
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
+  const [qrText, setQrText] = useState('');
+  const [generatedQR, setGeneratedQR] = useState<string | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const qrScannerRef = useRef<QrScanner | null>(null);
+  const barcodeReader = useRef<BrowserMultiFormatReader | null>(null);
   const { toast } = useToast();
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -39,25 +47,66 @@ const QRScanner = () => {
       const imageUrl = URL.createObjectURL(file);
       setUploadedImage(imageUrl);
       
-      const result = await QrScanner.scanImage(file, {
-        returnDetailedScanResult: true,
-      });
+      // Try QR code scanning first
+      try {
+        const qrResult = await QrScanner.scanImage(file, {
+          returnDetailedScanResult: true,
+        });
+        
+        setScanResult({
+          data: qrResult.data,
+          timestamp: new Date(),
+          format: 'QR Code'
+        });
+        
+        toast({
+          title: "QR Code Detected!",
+          description: "Successfully extracted data from the QR code.",
+        });
+        return;
+      } catch (qrError) {
+        console.log('QR scanning failed, trying barcode...');
+      }
       
-      // Determine format based on data characteristics since the library doesn't provide format info
-      const detectedFormat = result.data.length > 50 ? 'QR Code' : 'Barcode';
+      // If QR fails, try barcode scanning
+      try {
+        if (!barcodeReader.current) {
+          barcodeReader.current = new BrowserMultiFormatReader();
+        }
+        
+        const img = new Image();
+        img.src = imageUrl;
+        await new Promise((resolve) => {
+          img.onload = resolve;
+        });
+        
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        ctx?.drawImage(img, 0, 0);
+        
+        const imageData = ctx?.getImageData(0, 0, canvas.width, canvas.height);
+        if (imageData) {
+          const barcodeResult = await barcodeReader.current.decodeFromImageData(imageData);
+          
+          setScanResult({
+            data: barcodeResult.getText(),
+            timestamp: new Date(),
+            format: barcodeResult.getBarcodeFormat().toString()
+          });
+          
+          toast({
+            title: "Barcode Detected!",
+            description: "Successfully extracted data from the barcode.",
+          });
+          return;
+        }
+      } catch (barcodeError) {
+        console.log('Barcode scanning failed:', barcodeError);
+      }
       
-      setScanResult({
-        data: result.data,
-        timestamp: new Date(),
-        format: detectedFormat
-      });
-      
-      const isBarcode = detectedFormat === 'Barcode';
-      
-      toast({
-        title: `${isBarcode ? 'Barcode' : 'QR Code'} Detected!`,
-        description: `Successfully extracted data from the ${isBarcode ? 'barcode' : 'QR code'}.`,
-      });
+      throw new Error('No code detected');
     } catch (error) {
       console.error('Code scanning error:', error);
       toast({
@@ -90,19 +139,15 @@ const QRScanner = () => {
           (result) => {
             console.log('Code detected:', result);
             
-            // Determine format based on data characteristics
-            const detectedFormat = result.data.length > 50 ? 'QR Code' : 'Barcode';
-            const isBarcode = detectedFormat === 'Barcode';
-            
             setScanResult({
               data: result.data,
               timestamp: new Date(),
-              format: detectedFormat
+              format: 'QR Code'
             });
             
             toast({
-              title: `${isBarcode ? 'Barcode' : 'QR Code'} Detected!`,
-              description: `Successfully scanned ${isBarcode ? 'barcode' : 'QR code'} from camera.`,
+              title: "QR Code Detected!",
+              description: "Successfully scanned QR code from camera.",
             });
             stopCamera();
           },
@@ -140,6 +185,52 @@ const QRScanner = () => {
     }
     setIsCameraActive(false);
     setCameraError(null);
+  };
+
+  const generateQRCode = async () => {
+    if (!qrText.trim()) {
+      toast({
+        title: "Input Required",
+        description: "Please enter text to generate QR code.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsGenerating(true);
+    try {
+      const qrDataUrl = await QRCode.toDataURL(qrText, {
+        width: 256,
+        margin: 2,
+        color: {
+          dark: '#000000',
+          light: '#FFFFFF'
+        }
+      });
+      setGeneratedQR(qrDataUrl);
+      toast({
+        title: "QR Code Generated!",
+        description: "Your QR code has been created successfully.",
+      });
+    } catch (error) {
+      console.error('QR generation error:', error);
+      toast({
+        title: "Generation Failed",
+        description: "Could not generate QR code. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const downloadQRCode = () => {
+    if (generatedQR) {
+      const link = document.createElement('a');
+      link.download = 'qrcode.png';
+      link.href = generatedQR;
+      link.click();
+    }
   };
 
   useEffect(() => {
@@ -208,7 +299,7 @@ const QRScanner = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 p-4">
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-6xl mx-auto">
         <div className="text-center mb-8">
           <div className="flex items-center justify-center mb-4">
             <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-3 rounded-2xl">
@@ -219,13 +310,13 @@ const QRScanner = () => {
             QR Code & Barcode Scanner
           </h1>
           <p className="text-gray-600 text-lg">
-            Upload an image or use your camera to scan QR codes and barcodes
+            Scan QR codes & barcodes, or generate your own QR codes
           </p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Upload/Camera Area */}
-          <Card className="relative overflow-hidden">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Scanner Area */}
+          <Card className="relative overflow-hidden lg:col-span-2">
             <CardContent className="p-0">
               {isCameraActive ? (
                 <div className="relative">
@@ -340,62 +431,115 @@ const QRScanner = () => {
             </CardContent>
           </Card>
 
-          {/* Results Area */}
-          <Card className="h-fit">
-            <CardContent className="p-6">
-              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-                <CheckCircle className="w-5 h-5 text-green-600" />
-                Scan Results
-              </h2>
-              
-              {scanResult ? (
-                <div className="space-y-4">
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <label className="text-sm font-medium text-gray-600 block mb-2">
-                      {scanResult.format} Data:
-                    </label>
-                    <div className="bg-white rounded border p-3 font-mono text-sm break-all">
-                      {scanResult.data}
+          {/* Right Column - Results and Generator */}
+          <div className="space-y-6">
+            {/* Results Area */}
+            <Card className="h-fit">
+              <CardContent className="p-6">
+                <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                  <CheckCircle className="w-5 h-5 text-green-600" />
+                  Scan Results
+                </h2>
+                
+                {scanResult ? (
+                  <div className="space-y-4">
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <label className="text-sm font-medium text-gray-600 block mb-2">
+                        {scanResult.format} Data:
+                      </label>
+                      <div className="bg-white rounded border p-3 font-mono text-sm break-all">
+                        {scanResult.data}
+                      </div>
+                      <div className="mt-2">
+                        <span className="text-xs text-gray-500">
+                          Format: {scanResult.format}
+                        </span>
+                      </div>
                     </div>
-                    <div className="mt-2">
-                      <span className="text-xs text-gray-500">
-                        Format: {scanResult.format}
+                    
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-500">
+                        Scanned at {scanResult.timestamp.toLocaleTimeString()}
                       </span>
+                      <Button
+                        onClick={copyToClipboard}
+                        variant="outline"
+                        size="sm"
+                        className="gap-2"
+                      >
+                        <Copy className="w-4 h-4" />
+                        Copy
+                      </Button>
                     </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <AlertCircle className="w-12 h-12 mx-auto text-gray-400 mb-4" />
+                    <p className="text-gray-500">
+                      No code data yet. Upload an image or use camera to get started.
+                    </p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* QR Generator */}
+            <Card>
+              <CardContent className="p-6">
+                <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                  <QrCode className="w-5 h-5 text-blue-600" />
+                  Generate QR Code
+                </h2>
+                
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="qr-text">Enter text or URL:</Label>
+                    <Input
+                      id="qr-text"
+                      value={qrText}
+                      onChange={(e) => setQrText(e.target.value)}
+                      placeholder="https://example.com or any text"
+                      className="mt-1"
+                    />
                   </div>
                   
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-500">
-                      Scanned at {scanResult.timestamp.toLocaleTimeString()}
-                    </span>
-                    <Button
-                      onClick={copyToClipboard}
-                      variant="outline"
-                      size="sm"
-                      className="gap-2"
-                    >
-                      <Copy className="w-4 h-4" />
-                      Copy
-                    </Button>
-                  </div>
+                  <Button
+                    onClick={generateQRCode}
+                    disabled={isGenerating || !qrText.trim()}
+                    className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                  >
+                    {isGenerating ? 'Generating...' : 'Generate QR Code'}
+                  </Button>
+                  
+                  {generatedQR && (
+                    <div className="text-center space-y-3">
+                      <img
+                        src={generatedQR}
+                        alt="Generated QR Code"
+                        className="mx-auto rounded-lg shadow-md"
+                      />
+                      <Button
+                        onClick={downloadQRCode}
+                        variant="outline"
+                        size="sm"
+                        className="gap-2"
+                      >
+                        <Download className="w-4 h-4" />
+                        Download
+                      </Button>
+                    </div>
+                  )}
                 </div>
-              ) : (
-                <div className="text-center py-8">
-                  <AlertCircle className="w-12 h-12 mx-auto text-gray-400 mb-4" />
-                  <p className="text-gray-500">
-                    No code data yet. Upload an image or use camera to get started.
-                  </p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </div>
         </div>
 
         {/* Info Section */}
         <Card className="mt-8">
           <CardContent className="p-6">
             <h3 className="text-lg font-semibold mb-3">How to use:</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-600">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm text-gray-600">
               <div className="flex items-start gap-3">
                 <div className="bg-blue-100 p-2 rounded-full">
                   <Upload className="w-4 h-4 text-blue-600" />
@@ -411,7 +555,7 @@ const QRScanner = () => {
                 </div>
                 <div>
                   <p className="font-medium text-gray-800">2. Use Camera</p>
-                  <p>Click "Use Camera" to scan QR codes and barcodes in real-time</p>
+                  <p>Click "Use Camera" to scan QR codes in real-time</p>
                 </div>
               </div>
               <div className="flex items-start gap-3">
@@ -421,6 +565,15 @@ const QRScanner = () => {
                 <div>
                   <p className="font-medium text-gray-800">3. Copy Data</p>
                   <p>View the extracted data and copy it to your clipboard</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="bg-orange-100 p-2 rounded-full">
+                  <QrCode className="w-4 h-4 text-orange-600" />
+                </div>
+                <div>
+                  <p className="font-medium text-gray-800">4. Generate QR</p>
+                  <p>Create your own QR codes from text or URLs</p>
                 </div>
               </div>
             </div>
