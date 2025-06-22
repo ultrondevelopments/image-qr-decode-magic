@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import QrScanner from 'qr-scanner';
-import { BrowserMultiFormatReader, NotFoundException } from '@zxing/library';
+import { BrowserMultiFormatReader } from '@zxing/library';
 import QRCode from 'qrcode';
 
 interface ScannedResult {
@@ -75,33 +75,27 @@ const QRScanner = () => {
         }
         
         const img = new Image();
+        img.crossOrigin = 'anonymous';
         img.src = imageUrl;
-        await new Promise((resolve) => {
+        
+        await new Promise((resolve, reject) => {
           img.onload = resolve;
+          img.onerror = reject;
         });
         
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        canvas.width = img.width;
-        canvas.height = img.height;
-        ctx?.drawImage(img, 0, 0);
+        const barcodeResult = await barcodeReader.current.decodeFromImageElement(img);
         
-        const imageData = ctx?.getImageData(0, 0, canvas.width, canvas.height);
-        if (imageData) {
-          const barcodeResult = await barcodeReader.current.decodeFromImageData(imageData);
-          
-          setScanResult({
-            data: barcodeResult.getText(),
-            timestamp: new Date(),
-            format: barcodeResult.getBarcodeFormat().toString()
-          });
-          
-          toast({
-            title: "Barcode Detected!",
-            description: "Successfully extracted data from the barcode.",
-          });
-          return;
-        }
+        setScanResult({
+          data: barcodeResult.getText(),
+          timestamp: new Date(),
+          format: barcodeResult.getBarcodeFormat().toString()
+        });
+        
+        toast({
+          title: "Barcode Detected!",
+          description: "Successfully extracted data from the barcode.",
+        });
+        return;
       } catch (barcodeError) {
         console.log('Barcode scanning failed:', barcodeError);
       }
