@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { Upload, Camera, Copy, CheckCircle, AlertCircle, X, CameraOff, QrCode, Download } from 'lucide-react';
+import { Upload, Camera, Copy, CheckCircle, AlertCircle, X, CameraOff, QrCode, Download, Scan } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -16,6 +16,7 @@ interface ScannedResult {
 }
 
 const QRScanner = () => {
+  const [activeTab, setActiveTab] = useState<'scan' | 'generate'>('scan');
   const [isDragOver, setIsDragOver] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const [scanResult, setScanResult] = useState<ScannedResult | null>(null);
@@ -297,136 +298,157 @@ const QRScanner = () => {
         <div className="text-center mb-8">
           <div className="flex items-center justify-center mb-4">
             <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-3 rounded-2xl">
-              <Camera className="w-8 h-8 text-white" />
+              <QrCode className="w-8 h-8 text-white" />
             </div>
           </div>
           <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
-            QR Code & Barcode Scanner
+            QR Code Generator & Scanner
           </h1>
           <p className="text-gray-600 text-lg">
-            Scan QR codes & barcodes, or generate your own QR codes
+            Generate QR codes or scan existing QR codes & barcodes
           </p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Scanner Area */}
-          <Card className="relative overflow-hidden lg:col-span-2">
-            <CardContent className="p-0">
-              {isCameraActive ? (
-                <div className="relative">
-                  <video
-                    ref={videoRef}
-                    className="w-full h-64 object-cover rounded-t-lg"
-                    autoPlay
-                    playsInline
-                    muted
-                  />
-                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <div className="border-2 border-white rounded-lg w-48 h-48 opacity-70 shadow-lg"></div>
+        {/* Navigation Tabs */}
+        <div className="flex justify-center mb-8">
+          <div className="bg-white rounded-lg p-1 shadow-md">
+            <Button
+              onClick={() => setActiveTab('scan')}
+              variant={activeTab === 'scan' ? 'default' : 'ghost'}
+              className={`gap-2 ${activeTab === 'scan' ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white' : ''}`}
+            >
+              <Scan className="w-4 h-4" />
+              Scanner
+            </Button>
+            <Button
+              onClick={() => setActiveTab('generate')}
+              variant={activeTab === 'generate' ? 'default' : 'ghost'}
+              className={`gap-2 ${activeTab === 'generate' ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white' : ''}`}
+            >
+              <QrCode className="w-4 h-4" />
+              Generator
+            </Button>
+          </div>
+        </div>
+
+        {activeTab === 'scan' ? (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* Scanner Area */}
+            <Card className="relative overflow-hidden lg:col-span-2">
+              <CardContent className="p-0">
+                {isCameraActive ? (
+                  <div className="relative">
+                    <video
+                      ref={videoRef}
+                      className="w-full h-64 object-cover rounded-t-lg"
+                      autoPlay
+                      playsInline
+                      muted
+                    />
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                      <div className="border-2 border-white rounded-lg w-48 h-48 opacity-70 shadow-lg"></div>
+                    </div>
+                    <div className="p-4 bg-gray-900 text-white text-center">
+                      <p className="mb-3">Point camera at QR code or barcode</p>
+                      <Button
+                        onClick={stopCamera}
+                        variant="outline"
+                        size="sm"
+                        className="gap-2 bg-white text-gray-900 hover:bg-gray-100"
+                      >
+                        <CameraOff className="w-4 h-4" />
+                        Stop Camera
+                      </Button>
+                    </div>
                   </div>
-                  <div className="p-4 bg-gray-900 text-white text-center">
-                    <p className="mb-3">Point camera at QR code or barcode</p>
-                    <Button
-                      onClick={stopCamera}
-                      variant="outline"
-                      size="sm"
-                      className="gap-2 bg-white text-gray-900 hover:bg-gray-100"
-                    >
-                      <CameraOff className="w-4 h-4" />
-                      Stop Camera
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <div
-                  className={`relative border-2 border-dashed rounded-lg transition-all duration-300 ${
-                    isDragOver
-                      ? 'border-blue-500 bg-blue-50'
-                      : 'border-gray-300 hover:border-gray-400'
-                  } ${isScanning ? 'pointer-events-none opacity-50' : ''}`}
-                  onDragOver={handleDragOver}
-                  onDragLeave={handleDragLeave}
-                  onDrop={handleDrop}
-                >
-                  <div className="p-8 text-center">
-                    {uploadedImage ? (
-                      <div className="space-y-4">
-                        <img
-                          src={uploadedImage}
-                          alt="Uploaded"
-                          className="max-w-full max-h-64 mx-auto rounded-lg shadow-md"
-                        />
-                        <div className="flex gap-2 justify-center">
-                          <Button
-                            onClick={clearResults}
-                            variant="outline"
-                            size="sm"
-                            className="gap-2"
-                          >
-                            <X className="w-4 h-4" />
-                            Clear
-                          </Button>
+                ) : (
+                  <div
+                    className={`relative border-2 border-dashed rounded-lg transition-all duration-300 ${
+                      isDragOver
+                        ? 'border-blue-500 bg-blue-50'
+                        : 'border-gray-300 hover:border-gray-400'
+                    } ${isScanning ? 'pointer-events-none opacity-50' : ''}`}
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                  >
+                    <div className="p-8 text-center">
+                      {uploadedImage ? (
+                        <div className="space-y-4">
+                          <img
+                            src={uploadedImage}
+                            alt="Uploaded"
+                            className="max-w-full max-h-64 mx-auto rounded-lg shadow-md"
+                          />
+                          <div className="flex gap-2 justify-center">
+                            <Button
+                              onClick={clearResults}
+                              variant="outline"
+                              size="sm"
+                              className="gap-2"
+                            >
+                              <X className="w-4 h-4" />
+                              Clear
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="mb-4">
+                            <Upload className="w-16 h-16 mx-auto text-gray-400" />
+                          </div>
+                          <h3 className="text-xl font-semibold text-gray-700 mb-2">
+                            Drop your image here
+                          </h3>
+                          <p className="text-gray-500 mb-4">
+                            or choose from the options below
+                          </p>
+                          <div className="flex gap-3 justify-center">
+                            <Button
+                              onClick={() => fileInputRef.current?.click()}
+                              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                              disabled={isScanning}
+                            >
+                              {isScanning ? 'Scanning...' : 'Choose File'}
+                            </Button>
+                            <Button
+                              onClick={startCamera}
+                              variant="outline"
+                              className="gap-2"
+                              disabled={isScanning}
+                            >
+                              <Camera className="w-4 h-4" />
+                              Use Camera
+                            </Button>
+                          </div>
+                          {cameraError && (
+                            <p className="text-red-500 text-sm mt-2">{cameraError}</p>
+                          )}
+                        </>
+                      )}
+                    </div>
+                    
+                    {isScanning && (
+                      <div className="absolute inset-0 bg-white/80 flex items-center justify-center">
+                        <div className="text-center">
+                          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                          <p className="text-gray-600">Scanning code...</p>
                         </div>
                       </div>
-                    ) : (
-                      <>
-                        <div className="mb-4">
-                          <Upload className="w-16 h-16 mx-auto text-gray-400" />
-                        </div>
-                        <h3 className="text-xl font-semibold text-gray-700 mb-2">
-                          Drop your image here
-                        </h3>
-                        <p className="text-gray-500 mb-4">
-                          or choose from the options below
-                        </p>
-                        <div className="flex gap-3 justify-center">
-                          <Button
-                            onClick={() => fileInputRef.current?.click()}
-                            className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
-                            disabled={isScanning}
-                          >
-                            {isScanning ? 'Scanning...' : 'Choose File'}
-                          </Button>
-                          <Button
-                            onClick={startCamera}
-                            variant="outline"
-                            className="gap-2"
-                            disabled={isScanning}
-                          >
-                            <Camera className="w-4 h-4" />
-                            Use Camera
-                          </Button>
-                        </div>
-                        {cameraError && (
-                          <p className="text-red-500 text-sm mt-2">{cameraError}</p>
-                        )}
-                      </>
                     )}
                   </div>
-                  
-                  {isScanning && (
-                    <div className="absolute inset-0 bg-white/80 flex items-center justify-center">
-                      <div className="text-center">
-                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                        <p className="text-gray-600">Scanning code...</p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-              
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handleFileSelect}
-                className="hidden"
-              />
-            </CardContent>
-          </Card>
+                )}
+                
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                />
+              </CardContent>
+            </Card>
 
-          {/* Right Column - Results and Generator */}
-          <div className="space-y-6">
             {/* Results Area */}
             <Card className="h-fit">
               <CardContent className="p-6">
@@ -476,50 +498,53 @@ const QRScanner = () => {
                 )}
               </CardContent>
             </Card>
-
-            {/* QR Generator */}
+          </div>
+        ) : (
+          /* QR Generator Section */
+          <div className="max-w-2xl mx-auto">
             <Card>
-              <CardContent className="p-6">
-                <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-                  <QrCode className="w-5 h-5 text-blue-600" />
+              <CardContent className="p-8">
+                <h2 className="text-2xl font-semibold mb-6 text-center flex items-center justify-center gap-2">
+                  <QrCode className="w-6 h-6 text-blue-600" />
                   Generate QR Code
                 </h2>
                 
-                <div className="space-y-4">
+                <div className="space-y-6">
                   <div>
-                    <Label htmlFor="qr-text">Enter text or URL:</Label>
+                    <Label htmlFor="qr-text" className="text-lg">Enter text or URL:</Label>
                     <Input
                       id="qr-text"
                       value={qrText}
                       onChange={(e) => setQrText(e.target.value)}
                       placeholder="https://example.com or any text"
-                      className="mt-1"
+                      className="mt-2 text-lg p-4"
                     />
                   </div>
                   
                   <Button
                     onClick={generateQRCode}
                     disabled={isGenerating || !qrText.trim()}
-                    className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                    className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-lg py-4"
                   >
                     {isGenerating ? 'Generating...' : 'Generate QR Code'}
                   </Button>
                   
                   {generatedQR && (
-                    <div className="text-center space-y-3">
-                      <img
-                        src={generatedQR}
-                        alt="Generated QR Code"
-                        className="mx-auto rounded-lg shadow-md"
-                      />
+                    <div className="text-center space-y-4 mt-8">
+                      <div className="bg-white p-6 rounded-lg shadow-md inline-block">
+                        <img
+                          src={generatedQR}
+                          alt="Generated QR Code"
+                          className="mx-auto rounded-lg"
+                        />
+                      </div>
                       <Button
                         onClick={downloadQRCode}
                         variant="outline"
-                        size="sm"
                         className="gap-2"
                       >
                         <Download className="w-4 h-4" />
-                        Download
+                        Download QR Code
                       </Button>
                     </div>
                   )}
@@ -527,7 +552,7 @@ const QRScanner = () => {
               </CardContent>
             </Card>
           </div>
-        </div>
+        )}
 
         {/* Info Section */}
         <Card className="mt-8">
