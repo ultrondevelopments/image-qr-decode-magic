@@ -5,7 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import QrScanner from 'qr-scanner';
 
-interface ScanResult {
+interface ScannedResult {
   data: string;
   timestamp: Date;
   format: string;
@@ -14,7 +14,7 @@ interface ScanResult {
 const QRScanner = () => {
   const [isDragOver, setIsDragOver] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
-  const [scanResult, setScanResult] = useState<ScanResult | null>(null);
+  const [scanResult, setScanResult] = useState<ScannedResult | null>(null);
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
@@ -43,13 +43,16 @@ const QRScanner = () => {
         returnDetailedScanResult: true,
       });
       
+      // Determine format based on data characteristics since the library doesn't provide format info
+      const detectedFormat = result.data.length > 50 ? 'QR Code' : 'Barcode';
+      
       setScanResult({
         data: result.data,
         timestamp: new Date(),
-        format: result.format || 'Unknown'
+        format: detectedFormat
       });
       
-      const isBarcode = result.format && result.format !== 'qr_code';
+      const isBarcode = detectedFormat === 'Barcode';
       
       toast({
         title: `${isBarcode ? 'Barcode' : 'QR Code'} Detected!`,
@@ -86,12 +89,15 @@ const QRScanner = () => {
           videoRef.current,
           (result) => {
             console.log('Code detected:', result);
-            const isBarcode = result.format && result.format !== 'qr_code';
+            
+            // Determine format based on data characteristics
+            const detectedFormat = result.data.length > 50 ? 'QR Code' : 'Barcode';
+            const isBarcode = detectedFormat === 'Barcode';
             
             setScanResult({
               data: result.data,
               timestamp: new Date(),
-              format: result.format || 'Unknown'
+              format: detectedFormat
             });
             
             toast({
@@ -346,18 +352,16 @@ const QRScanner = () => {
                 <div className="space-y-4">
                   <div className="bg-gray-50 rounded-lg p-4">
                     <label className="text-sm font-medium text-gray-600 block mb-2">
-                      {scanResult.format === 'qr_code' ? 'QR Code' : 'Barcode'} Data:
+                      {scanResult.format} Data:
                     </label>
                     <div className="bg-white rounded border p-3 font-mono text-sm break-all">
                       {scanResult.data}
                     </div>
-                    {scanResult.format !== 'Unknown' && (
-                      <div className="mt-2">
-                        <span className="text-xs text-gray-500">
-                          Format: {scanResult.format.replace('_', ' ').toUpperCase()}
-                        </span>
-                      </div>
-                    )}
+                    <div className="mt-2">
+                      <span className="text-xs text-gray-500">
+                        Format: {scanResult.format}
+                      </span>
+                    </div>
                   </div>
                   
                   <div className="flex items-center justify-between">
