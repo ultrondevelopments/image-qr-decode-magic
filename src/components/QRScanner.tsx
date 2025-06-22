@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { Upload, Camera, Copy, CheckCircle, AlertCircle, X, CameraOff, QrCode, Download, Scan } from 'lucide-react';
+import { Upload, Camera, Copy, CheckCircle, AlertCircle, X, CameraOff, QrCode, Download, Scan, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -26,6 +26,7 @@ const QRScanner = () => {
   const [qrText, setQrText] = useState('');
   const [generatedQR, setGeneratedQR] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [filePath, setFilePath] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const qrScannerRef = useRef<QrScanner | null>(null);
@@ -111,6 +112,37 @@ const QRScanner = () => {
       });
     } finally {
       setIsScanning(false);
+    }
+  };
+
+  const loadFromFilePath = async () => {
+    if (!filePath.trim()) {
+      toast({
+        title: "Path Required",
+        description: "Please enter a file path.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      // Create a file input to handle the path
+      const response = await fetch(filePath);
+      if (!response.ok) {
+        throw new Error('Could not load file from path');
+      }
+      
+      const blob = await response.blob();
+      const file = new File([blob], 'image', { type: blob.type });
+      
+      await scanCode(file);
+    } catch (error) {
+      console.error('File path loading error:', error);
+      toast({
+        title: "Path Load Failed",
+        description: "Could not load image from the specified path. Please check the path and try again.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -403,6 +435,31 @@ const QRScanner = () => {
                           <p className="text-gray-500 mb-4">
                             or choose from the options below
                           </p>
+                          
+                          {/* File Path Input */}
+                          <div className="mb-4 space-y-2">
+                            <div className="flex gap-2">
+                              <Input
+                                value={filePath}
+                                onChange={(e) => setFilePath(e.target.value)}
+                                placeholder="Paste file path here (e.g., /path/to/image.jpg)"
+                                className="flex-1"
+                              />
+                              <Button
+                                onClick={loadFromFilePath}
+                                variant="outline"
+                                className="gap-2"
+                                disabled={isScanning}
+                              >
+                                <FileText className="w-4 h-4" />
+                                Load
+                              </Button>
+                            </div>
+                            <p className="text-xs text-gray-500">
+                              Enter a local file path or URL to an image
+                            </p>
+                          </div>
+                          
                           <div className="flex gap-3 justify-center">
                             <Button
                               onClick={() => fileInputRef.current?.click()}
@@ -492,7 +549,7 @@ const QRScanner = () => {
                   <div className="text-center py-8">
                     <AlertCircle className="w-12 h-12 mx-auto text-gray-400 mb-4" />
                     <p className="text-gray-500">
-                      No code data yet. Upload an image or use camera to get started.
+                      No code data yet. Upload an image, paste a file path, or use camera to get started.
                     </p>
                   </div>
                 )}
@@ -558,7 +615,7 @@ const QRScanner = () => {
         <Card className="mt-8">
           <CardContent className="p-6">
             <h3 className="text-lg font-semibold mb-3">How to use:</h3>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm text-gray-600">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4 text-sm text-gray-600">
               <div className="flex items-start gap-3">
                 <div className="bg-blue-100 p-2 rounded-full">
                   <Upload className="w-4 h-4 text-blue-600" />
@@ -570,10 +627,19 @@ const QRScanner = () => {
               </div>
               <div className="flex items-start gap-3">
                 <div className="bg-purple-100 p-2 rounded-full">
-                  <Camera className="w-4 h-4 text-purple-600" />
+                  <FileText className="w-4 h-4 text-purple-600" />
                 </div>
                 <div>
-                  <p className="font-medium text-gray-800">2. Use Camera</p>
+                  <p className="font-medium text-gray-800">2. File Path</p>
+                  <p>Paste a local file path or URL to load an image directly</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="bg-indigo-100 p-2 rounded-full">
+                  <Camera className="w-4 h-4 text-indigo-600" />
+                </div>
+                <div>
+                  <p className="font-medium text-gray-800">3. Use Camera</p>
                   <p>Click "Use Camera" to scan QR codes in real-time</p>
                 </div>
               </div>
@@ -582,7 +648,7 @@ const QRScanner = () => {
                   <Copy className="w-4 h-4 text-green-600" />
                 </div>
                 <div>
-                  <p className="font-medium text-gray-800">3. Copy Data</p>
+                  <p className="font-medium text-gray-800">4. Copy Data</p>
                   <p>View the extracted data and copy it to your clipboard</p>
                 </div>
               </div>
@@ -591,7 +657,7 @@ const QRScanner = () => {
                   <QrCode className="w-4 h-4 text-orange-600" />
                 </div>
                 <div>
-                  <p className="font-medium text-gray-800">4. Generate QR</p>
+                  <p className="font-medium text-gray-800">5. Generate QR</p>
                   <p>Create your own QR codes from text or URLs</p>
                 </div>
               </div>
