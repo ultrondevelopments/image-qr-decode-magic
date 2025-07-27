@@ -8,11 +8,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { TimePicker } from '@/components/ui/time-picker';
-import { CalendarIcon, Copy, ExternalLink, Plus, Trash2, Clock, BarChart3 } from 'lucide-react';
+import { CalendarIcon, Copy, ExternalLink, Plus, Trash2, Clock, BarChart3, QrCode, Scan } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
+import QRScanner from '@/components/QRScanner';
 
 interface Link {
   id: string;
@@ -26,6 +27,7 @@ interface Link {
 }
 
 const Index = () => {
+  const [activeTab, setActiveTab] = useState<'links' | 'qr'>('links');
   const [links, setLinks] = useState<Link[]>([]);
   const [originalUrl, setOriginalUrl] = useState('');
   const [title, setTitle] = useState('');
@@ -117,6 +119,10 @@ const Index = () => {
     return `${minutes}m`;
   };
 
+  if (activeTab === 'qr') {
+    return <QRScanner />;
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
       <div className="max-w-6xl mx-auto">
@@ -141,6 +147,28 @@ const Index = () => {
               className="flex items-center gap-2"
             >
               Pricing
+            </Button>
+          </div>
+        </div>
+
+        {/* Navigation Tabs */}
+        <div className="flex justify-center mb-8">
+          <div className="bg-white rounded-lg p-1 shadow-md">
+            <Button
+              onClick={() => setActiveTab('links')}
+              variant={activeTab === 'links' ? 'default' : 'ghost'}
+              className={`gap-2 ${activeTab === 'links' ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white' : ''}`}
+            >
+              <ExternalLink className="h-4 w-4" />
+              Link Manager
+            </Button>
+            <Button
+              onClick={() => setActiveTab('qr')}
+              variant={activeTab === 'qr' ? 'default' : 'ghost'}
+              className={`gap-2 ${activeTab === 'qr' ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white' : ''}`}
+            >
+              <QrCode className="h-4 w-4" />
+              QR Scanner
             </Button>
           </div>
         </div>

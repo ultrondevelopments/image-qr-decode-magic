@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
-import { TrendingUp, Link, Clock, Eye, Calendar } from 'lucide-react';
+import { TrendingUp, Link, Clock, Eye, Calendar, ExternalLink } from 'lucide-react';
 import { format } from 'date-fns';
 
 const Analytics = () => {
@@ -50,9 +50,28 @@ const Analytics = () => {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Analytics Dashboard</h1>
-          <p className="text-gray-600">Track your link performance and usage statistics</p>
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Analytics Dashboard</h1>
+            <p className="text-gray-600">Track your link performance and usage statistics</p>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => window.location.href = '/'}
+              className="flex items-center gap-2"
+            >
+              <ExternalLink className="h-4 w-4" />
+              Link Manager
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => window.location.href = '/pricing'}
+              className="flex items-center gap-2"
+            >
+              Pricing
+            </Button>
+          </div>
         </div>
 
         {/* Time Range Selector */}
