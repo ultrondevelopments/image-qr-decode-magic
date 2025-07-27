@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { Upload, Camera, Copy, CheckCircle, AlertCircle, X, CameraOff, QrCode, Download, Scan, FileText } from 'lucide-react';
+import { Upload, Camera, Copy, CheckCircle, AlertCircle, X, CameraOff, QrCode, Download, Scan, FileText, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -327,18 +327,28 @@ const QRScanner = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 p-4">
       <div className="max-w-6xl mx-auto">
-        <div className="text-center mb-8">
-          <div className="flex items-center justify-center mb-4">
-            <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-3 rounded-2xl">
-              <QrCode className="w-8 h-8 text-white" />
+        <div className="flex items-center justify-between mb-8">
+          <div className="text-center flex-1">
+            <div className="flex items-center justify-center mb-4">
+              <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-3 rounded-2xl">
+                <QrCode className="w-8 h-8 text-white" />
+              </div>
             </div>
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
+              QR Code Generator & Scanner
+            </h1>
+            <p className="text-gray-600 text-lg">
+              Generate QR codes or scan existing QR codes & barcodes
+            </p>
           </div>
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
-            QR Code Generator & Scanner
-          </h1>
-          <p className="text-gray-600 text-lg">
-            Generate QR codes or scan existing QR codes & barcodes
-          </p>
+          <Button
+            variant="outline"
+            onClick={() => window.location.href = '/'}
+            className="flex items-center gap-2"
+          >
+            <ExternalLink className="h-4 w-4" />
+            Link Manager
+          </Button>
         </div>
 
         {/* Navigation Tabs */}
