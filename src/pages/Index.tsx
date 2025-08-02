@@ -32,7 +32,29 @@ interface Link {
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState<'links' | 'qr' | 'p2p'>('links');
-  const [links, setLinks] = useState<Link[]>([]);
+  const [links, setLinks] = useState<Link[]>([
+    // Add some sample links for testing
+    {
+      id: '1',
+      originalUrl: 'https://example.com',
+      shortUrl: 'sample1',
+      title: 'Sample Link 1',
+      description: 'This is a sample link for testing P2P sharing',
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours from now
+      createdAt: new Date(),
+      clicks: 0,
+    },
+    {
+      id: '2',
+      originalUrl: 'https://google.com',
+      shortUrl: 'sample2',
+      title: 'Sample Link 2',
+      description: 'Another sample link for testing',
+      expiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000), // 48 hours from now
+      createdAt: new Date(),
+      clicks: 5,
+    }
+  ]);
   const [sharedLinks, setSharedLinks] = useState<P2PLink[]>([]);
   const [originalUrl, setOriginalUrl] = useState('');
   const [title, setTitle] = useState('');
@@ -137,6 +159,12 @@ const Index = () => {
   }
 
   if (activeTab === 'p2p') {
+    console.log('Rendering P2P tab with:', {
+      linksCount: links.length,
+      sharedLinksCount: sharedLinks.length,
+      links: links
+    });
+    
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
         <div className="max-w-6xl mx-auto">

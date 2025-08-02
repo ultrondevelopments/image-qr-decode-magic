@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Copy, Share2, Users, Wifi, WifiOff, CheckCircle, XCircle, ArrowRight } from 'lucide-react';
+import { Copy, Share2, Users, Wifi, WifiOff, CheckCircle, XCircle, ArrowRight, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { p2pService, P2PConnection, P2PLink } from '@/lib/p2p-service';
 
@@ -22,28 +22,81 @@ const P2PSharing = ({ links, onLinkReceived }: P2PSharingProps) => {
   const [selectedLink, setSelectedLink] = useState<string>('');
   const [isCreatingConnection, setIsCreatingConnection] = useState(false);
   const [isJoiningConnection, setIsJoiningConnection] = useState(false);
+  const [isP2PSupported, setIsP2PSupported] = useState<boolean | null>(null);
   const { toast } = useToast();
 
+  // Debug logging
+  console.log('P2PSharing component rendered:', {
+    linksCount: links.length,
+    connectionsCount: connections.length,
+    isP2PSupported,
+    selectedLink
+  });
+
   useEffect(() => {
-    // Set up event handlers
-    p2pService.onLinkReceived(onLinkReceived);
-    p2pService.onConnectionStatusChange((connectionId, isConnected) => {
-      setConnections(prev => 
-        prev.map(conn => 
-          conn.id === connectionId 
-            ? { ...conn, isConnected } 
-            : conn
-        )
-      );
-    });
+    // Check if WebRTC is supported
+    const checkP2PSupport = () => {
+      try {
+        // More comprehensive WebRTC check
+        const isSupported = !!(
+          typeof window !== 'undefined' &&
+          window.RTCPeerConnection &&
+          window.navigator &&
+          window.navigator.mediaDevices &&
+          window.navigator.mediaDevices.getUserMedia &&
+          // Check if we're in a secure context (required for WebRTC)
+          (window.location.protocol === 'https:' || window.location.hostname === 'localhost')
+        );
+        
+        console.log('WebRTC support check:', {
+          hasRTCPeerConnection: !!window.RTCPeerConnection,
+          hasMediaDevices: !!(window.navigator && window.navigator.mediaDevices),
+          hasGetUserMedia: !!(window.navigator && window.navigator.mediaDevices && window.navigator.mediaDevices.getUserMedia),
+          isSecureContext: window.location.protocol === 'https:' || window.location.hostname === 'localhost',
+          isSupported
+        });
+        
+        setIsP2PSupported(isSupported);
+        
+        if (isSupported) {
+          // Set up event handlers
+          p2pService.onLinkReceived(onLinkReceived);
+          p2pService.onConnectionStatusChange((connectionId, isConnected) => {
+            setConnections(prev => 
+              prev.map(conn => 
+                conn.id === connectionId 
+                  ? { ...conn, isConnected } 
+                  : conn
+              )
+            );
+          });
+        }
+      } catch (error) {
+        console.error('P2P support check failed:', error);
+        setIsP2PSupported(false);
+      }
+    };
+
+    checkP2PSupport();
 
     // Cleanup on unmount
     return () => {
-      p2pService.destroy();
+      if (isP2PSupported) {
+        p2pService.destroy();
+      }
     };
-  }, [onLinkReceived]);
+  }, [onLinkReceived, isP2PSupported]);
 
   const createConnection = async () => {
+    if (!isP2PSupported) {
+      toast({
+        title: "P2P not supported",
+        description: "Your browser doesn't support WebRTC. Please use a modern browser.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsCreatingConnection(true);
     
     try {
@@ -55,6 +108,7 @@ const P2PSharing = ({ links, onLinkReceived }: P2PSharingProps) => {
         description: "Share the connection code with someone to start sharing links.",
       });
     } catch (error) {
+      console.error('Failed to create connection:', error);
       toast({
         title: "Connection failed",
         description: "Failed to create P2P connection. Please try again.",
@@ -66,6 +120,15 @@ const P2PSharing = ({ links, onLinkReceived }: P2PSharingProps) => {
   };
 
   const joinConnection = async () => {
+    if (!isP2PSupported) {
+      toast({
+        title: "P2P not supported",
+        description: "Your browser doesn't support WebRTC. Please use a modern browser.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (!connectionCode.trim()) {
       toast({
         title: "Connection code required",
@@ -93,6 +156,7 @@ const P2PSharing = ({ links, onLinkReceived }: P2PSharingProps) => {
         throw new Error('Failed to join connection');
       }
     } catch (error) {
+      console.error('Failed to join connection:', error);
       toast({
         title: "Connection failed",
         description: "Failed to join the P2P connection. Please check the code and try again.",
@@ -159,6 +223,151 @@ const P2PSharing = ({ links, onLinkReceived }: P2PSharingProps) => {
     }
   };
 
+  // Show loading state while checking P2P support
+  if (isP2PSupported === null) {
+    return (
+      <Card className="w-full">
+        <CardContent className="pt-6">
+          <div className="text-center text-muted-foreground">
+            <Wifi className="h-12 w-12 mx-auto mb-4 animate-pulse" />
+            <p>Checking P2P support...</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Show error state if P2P is not supported
+  if (isP2PSupported === false) {
+    return (
+      <Card className="w-full">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-red-600">
+            <AlertTriangle className="h-5 w-5" />
+            P2P Not Supported
+          </CardTitle>
+          <CardDescription>
+            Your browser doesn't support WebRTC, which is required for P2P sharing
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center text-muted-foreground py-8">
+            <AlertTriangle className="h-12 w-12 mx-auto mb-4 text-red-500" />
+            <p className="font-medium mb-2">WebRTC Not Available</p>
+            <p className="text-sm mb-4">
+              P2P sharing requires WebRTC support, which is not available in your browser.
+            </p>
+            <div className="space-y-2 text-sm">
+              <p>Please try:</p>
+              <ul className="list-disc list-inside space-y-1">
+                <li>Using a modern browser (Chrome, Firefox, Safari, Edge)</li>
+                <li>Enabling WebRTC in your browser settings</li>
+                <li>Using HTTPS or localhost (WebRTC requires secure context)</li>
+                <li>Checking if you're behind a restrictive firewall</li>
+                <li>Disabling any WebRTC-blocking browser extensions</li>
+              </ul>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // For testing purposes, show a simplified version if P2P is not working
+  const showSimplifiedVersion = true; // Set to true for testing
+
+  if (showSimplifiedVersion) {
+    return (
+      <Card className="w-full">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Share2 className="h-5 w-5" />
+            P2P Link Sharing (Test Mode)
+          </CardTitle>
+          <CardDescription>
+            Simplified test version - P2P functionality disabled
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div className="p-4 bg-green-50 rounded-lg">
+              <p className="text-green-700">
+                ✅ Component is rendering correctly! 
+              </p>
+              <p className="text-sm text-green-600 mt-1">
+                Links available: {links.length} | P2P Supported: {isP2PSupported ? 'Yes' : 'No'}
+              </p>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Create Connection</CardTitle>
+                  <CardDescription>
+                    Start a new P2P connection and share the code
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button 
+                    onClick={() => toast({ title: "Test", description: "Create connection clicked" })}
+                    className="w-full"
+                  >
+                    <Wifi className="h-4 w-4 mr-2" />
+                    Create Connection (Test)
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Join Connection</CardTitle>
+                  <CardDescription>
+                    Connect to someone else's P2P session
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div>
+                    <Label htmlFor="connection-code">Connection Code</Label>
+                    <Input
+                      id="connection-code"
+                      placeholder="Enter connection code"
+                    />
+                  </div>
+                  <Button 
+                    onClick={() => toast({ title: "Test", description: "Join connection clicked" })}
+                    className="w-full"
+                  >
+                    <ArrowRight className="h-4 w-4 mr-2" />
+                    Join Connection (Test)
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Available Links</CardTitle>
+                <CardDescription>
+                  Links that can be shared via P2P
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {links.map((link) => (
+                    <div key={link.id} className="p-3 border rounded-lg">
+                      <p className="font-medium">{link.title}</p>
+                      <p className="text-sm text-muted-foreground">{link.description}</p>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card className="w-full">
       <CardHeader>
@@ -171,6 +380,16 @@ const P2PSharing = ({ links, onLinkReceived }: P2PSharingProps) => {
         </CardDescription>
       </CardHeader>
       <CardContent>
+        {/* Test button to verify component is working */}
+        <div className="mb-4 p-3 bg-blue-50 rounded-lg">
+          <p className="text-sm text-blue-700 mb-2">
+            <strong>Debug Info:</strong> Component is rendering correctly
+          </p>
+          <p className="text-xs text-blue-600">
+            Links: {links.length} | Connections: {connections.length} | P2P Supported: {isP2PSupported ? 'Yes' : 'No'}
+          </p>
+        </div>
+        
         <Tabs defaultValue="connections" className="w-full">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="connections">Connections</TabsTrigger>
@@ -313,6 +532,16 @@ const P2PSharing = ({ links, onLinkReceived }: P2PSharingProps) => {
                     <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
                     <p>No active connections</p>
                     <p className="text-sm">Create or join a connection to start sharing links</p>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : links.length === 0 ? (
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="text-center text-muted-foreground">
+                    <Share2 className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>No links available to share</p>
+                    <p className="text-sm">Create some links in the Link Manager tab first</p>
                   </div>
                 </CardContent>
               </Card>
