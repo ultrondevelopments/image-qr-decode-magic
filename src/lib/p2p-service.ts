@@ -28,7 +28,26 @@ class P2PService {
   private signalingData: any = null;
 
   constructor() {
-    // Initialize any global P2P setup
+    // Check if WebRTC is supported
+    if (typeof window !== 'undefined' && !this.isWebRTCSupported()) {
+      console.warn('WebRTC is not supported in this environment');
+    }
+  }
+
+  // Check if WebRTC is supported
+  private isWebRTCSupported(): boolean {
+    try {
+      return !!(
+        typeof window !== 'undefined' &&
+        window.RTCPeerConnection &&
+        window.navigator &&
+        window.navigator.mediaDevices &&
+        window.navigator.mediaDevices.getUserMedia
+      );
+    } catch (error) {
+      console.error('WebRTC support check failed:', error);
+      return false;
+    }
   }
 
   // Generate a unique connection ID
@@ -38,64 +57,82 @@ class P2PService {
 
   // Create a new P2P connection as initiator
   createConnection(): P2PConnection {
+    if (!this.isWebRTCSupported()) {
+      throw new Error('WebRTC is not supported in this environment');
+    }
+
     const connectionId = this.generateConnectionId();
     
-    const peer = new SimplePeer({
-      initiator: true,
-      trickle: false,
-      config: {
-        iceServers: [
-          { urls: 'stun:stun.l.google.com:19302' },
-          { urls: 'stun:stun1.l.google.com:19302' },
-          { urls: 'stun:stun2.l.google.com:19302' },
-        ]
-      }
-    });
+    try {
+      const peer = new SimplePeer({
+        initiator: true,
+        trickle: false,
+        config: {
+          iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' },
+            { urls: 'stun:stun2.l.google.com:19302' },
+          ]
+        }
+      });
 
-    const connection: P2PConnection = {
-      id: connectionId,
-      peer,
-      isConnected: false,
-      isInitiator: true,
-    };
+      const connection: P2PConnection = {
+        id: connectionId,
+        peer,
+        isConnected: false,
+        isInitiator: true,
+      };
 
-    this.setupPeerEventHandlers(peer, connectionId);
-    this.connections.set(connectionId, connection);
+      this.setupPeerEventHandlers(peer, connectionId);
+      this.connections.set(connectionId, connection);
 
-    return connection;
+      return connection;
+    } catch (error) {
+      console.error('Failed to create P2P connection:', error);
+      throw new Error('Failed to create P2P connection');
+    }
   }
 
   // Join an existing P2P connection using signaling data
   joinConnection(signalingData: any): P2PConnection | null {
+    if (!this.isWebRTCSupported()) {
+      throw new Error('WebRTC is not supported in this environment');
+    }
+
     const connectionId = this.generateConnectionId();
     
-    const peer = new SimplePeer({
-      initiator: false,
-      trickle: false,
-      config: {
-        iceServers: [
-          { urls: 'stun:stun.l.google.com:19302' },
-          { urls: 'stun:stun1.l.google.com:19302' },
-          { urls: 'stun:stun2.l.google.com:19302' },
-        ]
-      }
-    });
+    try {
+      const peer = new SimplePeer({
+        initiator: false,
+        trickle: false,
+        config: {
+          iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' },
+            { urls: 'stun:stun2.l.google.com:19302' },
+          ]
+        }
+      });
 
-    const connection: P2PConnection = {
-      id: connectionId,
-      peer,
-      isConnected: false,
-      isInitiator: false,
-      remoteId: signalingData.id,
-    };
+      const connection: P2PConnection = {
+        id: connectionId,
+        peer,
+        isConnected: false,
+        isInitiator: false,
+        remoteId: signalingData.id,
+      };
 
-    this.setupPeerEventHandlers(peer, connectionId);
-    this.connections.set(connectionId, connection);
+      this.setupPeerEventHandlers(peer, connectionId);
+      this.connections.set(connectionId, connection);
 
-    // Signal to the initiator
-    peer.signal(signalingData);
+      // Signal to the initiator
+      peer.signal(signalingData);
 
-    return connection;
+      return connection;
+    } catch (error) {
+      console.error('Failed to join P2P connection:', error);
+      return null;
+    }
   }
 
   private setupPeerEventHandlers(peer: SimplePeer.Instance, connectionId: string) {
@@ -145,6 +182,12 @@ class P2PService {
 
     peer.on('error', (error) => {
       console.error('P2P connection error:', error);
+      // Update connection status on error
+      const connection = this.connections.get(connectionId);
+      if (connection) {
+        connection.isConnected = false;
+        this.onConnectionStatusChange?.(connectionId, false);
+      }
     });
   }
 
@@ -155,18 +198,23 @@ class P2PService {
       return false;
     }
 
-    const message = {
-      type: 'link-share',
-      link: {
-        ...link,
-        sharedBy: 'peer',
-        createdAt: new Date().toISOString(),
-        expiresAt: link.expiresAt.toISOString(),
-      }
-    };
+    try {
+      const message = {
+        type: 'link-share',
+        link: {
+          ...link,
+          sharedBy: 'peer',
+          createdAt: new Date().toISOString(),
+          expiresAt: link.expiresAt.toISOString(),
+        }
+      };
 
-    connection.peer.send(JSON.stringify(message));
-    return true;
+      connection.peer.send(JSON.stringify(message));
+      return true;
+    } catch (error) {
+      console.error('Failed to share link:', error);
+      return false;
+    }
   }
 
   // Get connection code for sharing
@@ -183,7 +231,11 @@ class P2PService {
   closeConnection(connectionId: string): void {
     const connection = this.connections.get(connectionId);
     if (connection) {
-      connection.peer.destroy();
+      try {
+        connection.peer.destroy();
+      } catch (error) {
+        console.error('Error destroying peer connection:', error);
+      }
       this.connections.delete(connectionId);
     }
   }
@@ -205,7 +257,11 @@ class P2PService {
   // Cleanup all connections
   destroy(): void {
     this.connections.forEach((connection) => {
-      connection.peer.destroy();
+      try {
+        connection.peer.destroy();
+      } catch (error) {
+        console.error('Error destroying peer connection:', error);
+      }
     });
     this.connections.clear();
   }
