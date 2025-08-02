@@ -8,12 +8,16 @@ import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { TimePicker } from '@/components/ui/time-picker';
-import { CalendarIcon, Copy, ExternalLink, Plus, Trash2, Clock, BarChart3, QrCode, Scan } from 'lucide-react';
+import { CalendarIcon, Copy, ExternalLink, Plus, Trash2, Clock, BarChart3, QrCode, Scan, Share2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import QRScanner from '@/components/QRScanner';
+import P2PSharing from '@/components/P2PSharing';
+import SharedLinks from '@/components/SharedLinks';
+import P2PInstructions from '@/components/P2PInstructions';
+import { P2PLink } from '@/lib/p2p-service';
 
 interface Link {
   id: string;
@@ -27,8 +31,9 @@ interface Link {
 }
 
 const Index = () => {
-  const [activeTab, setActiveTab] = useState<'links' | 'qr'>('links');
+  const [activeTab, setActiveTab] = useState<'links' | 'qr' | 'p2p'>('links');
   const [links, setLinks] = useState<Link[]>([]);
+  const [sharedLinks, setSharedLinks] = useState<P2PLink[]>([]);
   const [originalUrl, setOriginalUrl] = useState('');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -100,6 +105,14 @@ const Index = () => {
     });
   };
 
+  const handleLinkReceived = (link: P2PLink) => {
+    setSharedLinks(prev => [link, ...prev]);
+    toast({
+      title: "Link received!",
+      description: `"${link.title}" has been shared with you via P2P.`,
+    });
+  };
+
   const isExpired = (date: Date) => {
     return new Date() > date;
   };
@@ -121,6 +134,42 @@ const Index = () => {
 
   if (activeTab === 'qr') {
     return <QRScanner />;
+  }
+
+  if (activeTab === 'p2p') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
+        <div className="max-w-6xl mx-auto">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-8">
+            <div className="text-center flex-1">
+              <h1 className="text-4xl font-bold text-gray-900 mb-2">P2P Link Sharing</h1>
+              <p className="text-gray-600">Share links directly with other users using peer-to-peer connections</p>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setActiveTab('links')}
+                className="flex items-center gap-2"
+              >
+                <ExternalLink className="h-4 w-4" />
+                Back to Links
+              </Button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2">
+              <P2PSharing links={links} onLinkReceived={handleLinkReceived} />
+            </div>
+            <div className="space-y-6">
+              <P2PInstructions />
+              <SharedLinks sharedLinks={sharedLinks} />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -169,6 +218,14 @@ const Index = () => {
             >
               <QrCode className="h-4 w-4" />
               QR Scanner
+            </Button>
+            <Button
+              onClick={() => setActiveTab('p2p')}
+              variant={activeTab === 'p2p' ? 'default' : 'ghost'}
+              className={`gap-2 ${activeTab === 'p2p' ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white' : ''}`}
+            >
+              <Share2 className="h-4 w-4" />
+              P2P Sharing
             </Button>
           </div>
         </div>

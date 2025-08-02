@@ -10,6 +10,7 @@ A modern web application for creating secure links with automatic expiry dates a
 - **Link Management**: View, edit, and delete your created links
 - **Click Tracking**: Monitor how many times each link has been clicked
 - **Analytics Dashboard**: Comprehensive analytics with charts and performance metrics
+- **P2P Link Sharing**: Share links directly with other users using peer-to-peer connections
 
 ### User Experience
 - **Modern UI**: Beautiful, responsive design built with shadcn/ui components
@@ -31,6 +32,7 @@ A modern web application for creating secure links with automatic expiry dates a
 - **Charts**: Recharts
 - **Icons**: Lucide React
 - **Date Handling**: date-fns
+- **P2P Communication**: WebRTC + Simple Peer
 - **Build Tool**: Vite
 
 ## 📦 Installation
@@ -101,6 +103,13 @@ src/
 - Copy links with one click
 - Delete links you no longer need
 - Track click counts
+
+### P2P Link Sharing
+- Create P2P connections with other users
+- Share connection codes to establish direct connections
+- Send links directly to connected peers
+- Receive shared links in a dedicated section
+- No server required - direct peer-to-peer communication
 
 ### Analytics
 - Access detailed analytics at `/analytics`
